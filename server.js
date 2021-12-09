@@ -69,6 +69,7 @@ app.post("/api/shorturl/", (req, res) => {
   const options = {
     family: 0
   };
+  console.log(req.body);
   console.log(fullURL ? "URL Exists" : "No URL");
   dns.lookup(formatUrlToHost(fullURL), options, err => {
     if (err || !fullURL) {
@@ -109,7 +110,7 @@ app.get("/api/shorturl/:shortURL?", (req, res) => {
     ? originalURLEntry[0].original_url
     : null;
   if (redirPath) {
-    console.log("original_url was found, URL as redirect path.");
+    console.log(`original_url was found, sending: "${redirPath}" as redirect path.`);
     res.status(301).redirect(redirPath);
   } else {
     console.log("original_url was not found, sending error JSON instead.");
