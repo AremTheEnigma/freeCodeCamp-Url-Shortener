@@ -10,6 +10,7 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 const dns = require("dns");
+const { json } = require("body-parser");
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -52,12 +53,8 @@ const makeEntry = (id, url) => {
 };
 const testMatches = url =>
   urlArr.filter(entry => {
-    const tempURL = formatUrlToHost(url);
-    const urlVariants = ["https://".concat(tempURL), "http://".concat(tempURL)];
-    if (
-      entry.original_url == urlVariants[0] ||
-      entry.original_url == urlVariants[1]
-    ) {
+    const tempURL = url.href;
+    if (entry.original_url == tempURL) {
       return true;
     }
     return false;
@@ -65,23 +62,33 @@ const testMatches = url =>
 
 // Register input URLs to unique ids and display their array entries.
 app.post("/api/shorturl/", (req, res) => {
-  let fullURL = req.body.url ? req.body.url : null;
+  let fullURL;
+  try {
+    fullURL = new URL(req.body.url);
+  } catch (e) {
+    console.log("Error: " + e.message);
+    res.json({ error: 'invalid url' });
+    return;
+  }
+  if (fullURL.protocol == 'ftp:') {
+    res.json({ error: 'invalid url' });
+    return;
+  }
   const options = {
     family: 0
   };
-  console.log(req.body);
   console.log(fullURL ? "URL Exists" : "No URL");
-  dns.lookup(formatUrlToHost(fullURL), options, err => {
+  dns.lookup(fullURL.hostname, options, err => {
     if (err || !fullURL) {
       res.json({ error: "invalid url" });
     } else {
-      if (testMatches(formatUrlToFull(fullURL)).length == 0) {
+      if (testMatches(fullURL).length == 0) {
 
         console.log("No previous entries found, adding entry.");
-        urlArr.push(makeEntry(urlArr.length, formatUrlToFull(fullURL)));
-        res.json(makeEntry(urlArr.length - 1, formatUrlToFull(fullURL)));
+        urlArr.push(makeEntry(urlArr.length, fullURL.href));
+        res.json(makeEntry(urlArr.length - 1, fullURL.href));
 
-      } else if (testMatches(formatUrlToFull(fullURL)).length > 0) {
+      } else if (testMatches(fullURL).length > 0) {
 
         console.log("Previous entry found. Displaying...");
         const previousEntryIndex = testMatches(fullURL)[0].short_url;
@@ -94,7 +101,7 @@ app.post("/api/shorturl/", (req, res) => {
 
       }
       console.log(
-        "Input URL: \"" + fullURL + "\", URL array length: " + urlArr.length
+        "Input URL: \"" + fullURL.href + "\", URL array length: " + urlArr.length
       );
     }
   });
