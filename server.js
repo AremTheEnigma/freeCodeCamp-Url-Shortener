@@ -8,17 +8,6 @@ const mongoose = require('mongoose');
 const { doesNotMatch } = require('assert');
 const { Schema } = mongoose;
 
-// Mongoose Requirements & Configuration
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true
-});
-const shortURLSchema = new Schema({
-  original_url: { type: String, unique: true },
-  short_url: { type: Number, unique: true }
-});
-const UrlEntry = mongoose.model('UrlEntry', shortURLSchema);
-
-
 // Basic Configuration
 const port = process.env.PORT || 3000;
 
@@ -30,24 +19,39 @@ app.get('/', (req, res) => {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
+// Mongoose Requirements & Configuration
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+});
+const shortURLSchema = new Schema({
+  original_url: { type: String, unique: true },
+  short_url: { type: Number, unique: true },
+});
+const UrlEntry = mongoose.model('UrlEntry', shortURLSchema);
+
 // Methods for creating and finding shortened URL entries on the database
 const newUrlId = () => {
-  let maxShort = 1;
+  let maxShort = UrlEntry.find({})
+    .sort({ short_url: -1 })
+    .limit(1)
+    .exec((err, urlEntry) => {
+      return urlEntry.short_url;
+    });
   return maxShort + 1;
 };
 const createUrlEntry = (url, shortUrl, done) => {
   let entry = new UrlEntry({
-    original_url: url,
-    short_url: shortUrl
+    original_url: url.href,
+    short_url: shortUrl,
   });
   entry.save((err, urlEntry) => {
     if (err) return done(err);
     done(null, urlEntry);
   });
-}
+};
 const findUrlEntry = (url, shortUrl = null, done) => {
   if (shortUrl == null) {
-    UrlEntry.findOne({ original_url: url }, (err, urlEntry) => {
+    UrlEntry.findOne({ original_url: url.href }, (err, urlEntry) => {
       if (err) return done(err);
       done(null, urlEntry);
     });
@@ -57,7 +61,7 @@ const findUrlEntry = (url, shortUrl = null, done) => {
       done(null, urlEntry);
     });
   }
-}
+};
 
 // Register input URLs to unique ids and display their array entries.
 app.post('/api/shorturl/', (req, res) => {
@@ -78,43 +82,64 @@ app.post('/api/shorturl/', (req, res) => {
   };
   console.log(fullURL ? 'URL Exists' : 'No URL');
   dns.lookup(fullURL.hostname, options, (err) => {
-    if (err || !fullURL) {
+    if (err) {
       res.json({ error: 'invalid url' });
     } else {
-      if (testMatches(fullURL).length == 0) {
+      // Return true if there are no previous entries, and then create one
+      if (
+        findUrlEntry(fullURL, null, (err, urlEntry) => (err ? true : false))
+      ) {
         console.log('No previous entries found, adding entry.');
-        urlArr.push(makeEntry(urlArr.length, fullURL.href));
-        res.json(makeEntry(urlArr.length - 1, fullURL.href));
-      } else if (testMatches(fullURL).length > 0) {
+        createUrlEntry(fullURL, newUrlId(), (err, urlEntry) => {
+          if (err) return console.log(err);
+          console.log(urlEntry);
+          res.json(urlEntry);
+        });
+        // If there is a previous entry, display it.
+      } else if (
+        findUrlEntry(fullURL, null, (err, urlEntry) => (err ? false : true))
+      ) {
         console.log('Previous entry found. Displaying...');
-        const previousEntryIndex = testMatches(fullURL)[0].short_url;
-        res.json(urlArr[previousEntryIndex]);
-      } else {
-        console.log('Invalid URL.');
-        res.json({ error: 'invalid url' });
+        findUrlEntry(fullURL, null, (err, urlEntry) => {
+          if (err) return console.log(err);
+          console.log(urlEntry);
+          res.json(urlEntry);
+        });
       }
       console.log(
-        'Input URL: "' + fullURL.href + '", URL array length: ' + urlArr.length
+        'Input URL: "' +
+          fullURL.href +
+          '", Total URL Entries: ' +
+          UrlEntry.find({})
+            .sort({ short_url: -1 })
+            .exec((err, urlEntries) => {
+              if (err) return console.log(err);
+              return urlEntries.length;
+            })
       );
     }
   });
 });
 
 // Use unique shorturl ids to redirect to the full-length URLs that they correspond to
-app.get('/api/shorturl/:shortURL?', (req, res) => {
+app.get('/api/shorturl/:shortURL', (req, res) => {
   const shortURL = parseInt(req.params.shortURL);
-  const originalURLEntry = urlArr.filter((entry) => {
-    return entry.short_url == shortURL ? true : false;
+  const originalURL = findUrlEntry(null, shortURL, (err, urlEntry) => {
+    if (err) return console.log(err);
+    console.log(urlEntry);
+    return urlEntry.original_url;
   });
-  const redirPath = originalURLEntry.length
-    ? originalURLEntry[0].original_url
-    : null;
-  if (redirPath) {
-    console.log(`original_url was found, sending: "${redirPath}" as redirect path.`);
-    res.status(301).redirect(redirPath);
-  } else {
+  try {
+    console.log(
+      `original_url was found, sending: "${originalURL}" as redirect path.`
+    );
+    res.status(301).redirect(originalURL);
+    return;
+  } catch (e) {
+    console.log(e.message);
     console.log('original_url was not found, sending error JSON instead.');
     res.json({ error: 'invalid url' });
+    return;
   }
 });
 
