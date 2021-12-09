@@ -32,6 +32,7 @@ const formatUrlToHost = (url) => {
   url = url.replace(suffixRegexp, "");
   return url;
 };
+
 const makeEntry = (id, url) => {
   return {
     original_url: url,
