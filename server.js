@@ -25,14 +25,14 @@ app.get("/", (req, res) => {
 
 // Array for URL / id pairs, as well as methods for creating entries and verifying URLs
 const urlArr = [];
-const formatUrlToHost = url => {
+const formatUrlToHost = (url) => {
   const prefixRegexp = new RegExp("https?://", "i");
   const suffixRegexp = new RegExp("/$");
   url = url.replace(prefixRegexp, "");
   url = url.replace(suffixRegexp, "");
   return url;
 };
-const formatUrlToFull = url => {
+const formatUrlToFull = (url) => {
   const https = "https://";
   const http = "http://";
   let returnURL = "";
@@ -48,11 +48,11 @@ const formatUrlToFull = url => {
 const makeEntry = (id, url) => {
   return {
     original_url: url,
-    short_url: id
+    short_url: id,
   };
 };
-const testMatches = url =>
-  urlArr.filter(entry => {
+const testMatches = (url) =>
+  urlArr.filter((entry) => {
     const tempURL = url.href;
     if (entry.original_url == tempURL) {
       return true;
@@ -67,41 +67,35 @@ app.post("/api/shorturl/", (req, res) => {
     fullURL = new URL(req.body.url);
   } catch (e) {
     console.log("Error: " + e.message);
-    res.json({ error: 'invalid url' });
+    res.json({ error: "invalid url" });
     return;
   }
-  if (fullURL.protocol == 'ftp:') {
-    res.json({ error: 'invalid url' });
+  if (fullURL.protocol == "ftp:") {
+    res.json({ error: "invalid url" });
     return;
   }
   const options = {
-    family: 0
+    family: 0,
   };
   console.log(fullURL ? "URL Exists" : "No URL");
-  dns.lookup(fullURL.hostname, options, err => {
+  dns.lookup(fullURL.hostname, options, (err) => {
     if (err || !fullURL) {
       res.json({ error: "invalid url" });
     } else {
       if (testMatches(fullURL).length == 0) {
-
         console.log("No previous entries found, adding entry.");
         urlArr.push(makeEntry(urlArr.length, fullURL.href));
         res.json(makeEntry(urlArr.length - 1, fullURL.href));
-
       } else if (testMatches(fullURL).length > 0) {
-
         console.log("Previous entry found. Displaying...");
         const previousEntryIndex = testMatches(fullURL)[0].short_url;
         res.json(urlArr[previousEntryIndex]);
-
       } else {
-
         console.log("Invalid URL.");
         res.json({ error: "invalid url" });
-
       }
       console.log(
-        "Input URL: \"" + fullURL.href + "\", URL array length: " + urlArr.length
+        'Input URL: "' + fullURL.href + '", URL array length: ' + urlArr.length
       );
     }
   });
@@ -110,14 +104,16 @@ app.post("/api/shorturl/", (req, res) => {
 // Use unique shorturl ids to redirect to the full-length URLs that they correspond to
 app.get("/api/shorturl/:shortURL?", (req, res) => {
   const shortURL = parseInt(req.params.shortURL);
-  const originalURLEntry = urlArr.filter(entry => {
+  const originalURLEntry = urlArr.filter((entry) => {
     return entry.short_url == shortURL ? true : false;
   });
   const redirPath = originalURLEntry.length
     ? originalURLEntry[0].original_url
     : null;
   if (redirPath) {
-    console.log(`original_url was found, sending: "${redirPath}" as redirect path.`);
+    console.log(
+      `original_url was found, sending: "${redirPath}" as redirect path.`
+    );
     res.status(301).redirect(redirPath);
   } else {
     console.log("original_url was not found, sending error JSON instead.");
