@@ -1,10 +1,3 @@
-/*
-// I tried to get this project to work with MongoDB and mongoose,
-// but I couldn't get it to work, and I was getting so many errors I wasn't
-// sure where to begin with it, in the interest of actually getting this done,
-// I've opted for this solution.
-*/
-
 require('dotenv').config({ path: './sample.env' });
 const express = require('express');
 const cors = require('cors');
@@ -12,6 +5,19 @@ const app = express();
 const dns = require('dns');
 const { json } = require('body-parser');
 const mongoose = require('mongoose');
+const { doesNotMatch } = require('assert');
+const { Schema } = mongoose;
+
+// Mongoose Requirements & Configuration
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true
+});
+const shortURLSchema = new Schema({
+  original_url: { type: String, unique: true },
+  short_url: { type: Number, unique: true }
+});
+const UrlEntry = mongoose.model('UrlEntry', shortURLSchema);
+
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -24,16 +30,34 @@ app.get('/', (req, res) => {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-// Array for URL / id pairs, as well as methods for creating entries and verifying URLs
-
-const testMatches = (url) =>
-  urlArr.filter((entry) => {
-    const tempURL = url.href;
-    if (entry.original_url == tempURL) {
-      return true;
-    }
-    return false;
+// Methods for creating and finding shortened URL entries on the database
+const newUrlId = () => {
+  let maxShort = 1;
+  return maxShort + 1;
+};
+const createUrlEntry = (url, shortUrl, done) => {
+  let entry = new UrlEntry({
+    original_url: url,
+    short_url: shortUrl
   });
+  entry.save((err, urlEntry) => {
+    if (err) return done(err);
+    done(null, urlEntry);
+  });
+}
+const findUrlEntry = (url, shortUrl = null, done) => {
+  if (shortUrl == null) {
+    UrlEntry.findOne({ original_url: url }, (err, urlEntry) => {
+      if (err) return done(err);
+      done(null, urlEntry);
+    });
+  } else {
+    UrlEntry.findOne({ short_url: shortUrl }, (err, urlEntry) => {
+      if (err) return done(err);
+      done(null, urlEntry);
+    });
+  }
+}
 
 // Register input URLs to unique ids and display their array entries.
 app.post('/api/shorturl/', (req, res) => {
@@ -86,9 +110,7 @@ app.get('/api/shorturl/:shortURL?', (req, res) => {
     ? originalURLEntry[0].original_url
     : null;
   if (redirPath) {
-    console.log(
-      `original_url was found, sending: "${redirPath}" as redirect path.`
-    );
+    console.log(`original_url was found, sending: "${redirPath}" as redirect path.`);
     res.status(301).redirect(redirPath);
   } else {
     console.log('original_url was not found, sending error JSON instead.');
