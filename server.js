@@ -5,7 +5,7 @@
 // I've opted for this solution.
 */
 
-require("dotenv").config();
+require("dotenv").config({ path: './sample.env' });
 const express = require("express");
 const cors = require("cors");
 const app = express();
@@ -50,7 +50,6 @@ const testMatches = (url) =>
 
 // Register input URLs to unique ids and display their array entries.
 app.post("/api/shorturl/", (req, res) => {
-  console.log(process.env.PORT);
   let fullURL;
   try {
     fullURL = new URL(req.body.url);

@@ -24,7 +24,7 @@
             "outDir": null,
             "localRoot": "${workspaceRoot}",
             "remoteRoot": null,
-            "envFile": "${workspaceFolder}/sample.env"
+            "envFile": "../sample.env"
         }
     ]
 }
