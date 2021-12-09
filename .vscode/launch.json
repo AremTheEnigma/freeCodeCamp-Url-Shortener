@@ -23,7 +23,8 @@
             "sourceMaps": false,
             "outDir": null,
             "localRoot": "${workspaceRoot}",
-            "remoteRoot": null
+            "remoteRoot": null,
+            "envFile": "${workspaceFolder}/sample.env"
         }
     ]
 }

@@ -32,19 +32,6 @@ const formatUrlToHost = (url) => {
   url = url.replace(suffixRegexp, "");
   return url;
 };
-const formatUrlToFull = (url) => {
-  const https = "https://";
-  const http = "http://";
-  let returnURL = "";
-  const urlPrefixes = [https, http];
-  if (url.startsWith(urlPrefixes[0]) || url.startsWith(urlPrefixes[1])) {
-    returnURL = url;
-    return returnURL;
-  } else {
-    returnURL = https.concat(url);
-    return returnURL;
-  }
-};
 const makeEntry = (id, url) => {
   return {
     original_url: url,
@@ -62,6 +49,7 @@ const testMatches = (url) =>
 
 // Register input URLs to unique ids and display their array entries.
 app.post("/api/shorturl/", (req, res) => {
+  console.log(process.env.PORT);
   let fullURL;
   try {
     fullURL = new URL(req.body.url);
